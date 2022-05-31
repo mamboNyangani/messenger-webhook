@@ -8,12 +8,9 @@ const
 
 const axios = require('axios');
 
-function postMessage() {
+function postMessage(event) {
   axios
-  .post('https://62952694a7203b3ed0777ce5.mockapi.io/messages', {
-    "message": "test",
-    "id": "0"
-})
+  .post('https://62952694a7203b3ed0777ce5.mockapi.io/messages', event)
   .then(res => {
     console.log("res",res);
   })
@@ -39,7 +36,7 @@ app.post('/webhook', (req, res) => {
       // will only ever contain one message, so we get index 0
       let webhook_event = entry.messaging[0];
       console.log(webhook_event);
-      postMessage()
+      postMessage(req)
       this.message = webhook_event;
     });
 
