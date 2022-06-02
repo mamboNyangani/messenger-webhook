@@ -10,7 +10,7 @@
 // Access token for your app
 // (copy token from DevX getting started page
 // and save it as environment variable into the .env file)
-const token = 'EAAtdE4dZAYNoBAMZCHfxMdSl0Vn49hMZCftIGZAmdZAI2xzZCKjYH7RtTO4xmDvI1y5PzRvNUX6l5L9ie2zw06jMyNjTRXSd2mzCt2rixFSul5ThC3S1YPeH0H8n3X4hYVBowM3shKRasDd6VzZAZCPmBgqYhElz301V0PQZAYS6jClS8U0Vz8mJSaLEwjL8V24S3gqGvKks6JQmZCyOyLyJh0';
+const token = 'EAAtdE4dZAYNoBALLW2dCh7ZAXHvW4jq4umOp1stDz8GCYzKGYWAJq1visC7Bvs7yQA8nDcGtbd9TZAJcfAH60D1F8iJ9lPzIT1IJXIrxc7eZCdgDsan4EyX8VNBM8zLEHUqVDKSaMTvMZBMwCo8JwS8ULge1fn21kqlsBGoPwCoFuJz8mFJwCAi72A72LRvfCDFQNo0ZBksZCe5IXI9YAj7';
 
 // Imports dependencies and set up http server
 const request = require("request"),
