@@ -1,75 +1,94 @@
-'use strict';
+/*
+ * Starter Project for WhatsApp Echo Bot Tutorial
+ *
+ * Remix this as the starting point for following the WhatsApp Echo Bot tutorial
+ *
+ */
+
+"use strict";
+
+// Access token for your app
+// (copy token from DevX getting started page
+// and save it as environment variable into the .env file)
+const token = 'EAAtdE4dZAYNoBAMZCHfxMdSl0Vn49hMZCftIGZAmdZAI2xzZCKjYH7RtTO4xmDvI1y5PzRvNUX6l5L9ie2zw06jMyNjTRXSd2mzCt2rixFSul5ThC3S1YPeH0H8n3X4hYVBowM3shKRasDd6VzZAZCPmBgqYhElz301V0PQZAYS6jClS8U0Vz8mJSaLEwjL8V24S3gqGvKks6JQmZCyOyLyJh0';
 
 // Imports dependencies and set up http server
-const
-  express = require('express'),
-  bodyParser = require('body-parser'),
-  app = express().use(bodyParser.json()); // creates express http server
-
-const axios = require('axios');
-
-function postMessage(event) {
-  axios
-  .post('https://62952694a7203b3ed0777ce5.mockapi.io/messages', event)
-  .then(res => {
-    console.log("res",res);
-  })
-  .catch(error => {
-    console.error(error);
-  });
-}
+const request = require("request"),
+  express = require("express"),
+  body_parser = require("body-parser"),
+  axios = require("axios").default,
+  app = express().use(body_parser.json()); // creates express http server
 
 // Sets server port and logs message on success
-app.listen(process.env.PORT || 1337, () => console.log('webhook is listening'));
+app.listen(process.env.PORT || 1337, () => console.log("webhook is listening"));
 
-app.post('/webhook', (req, res) => {
-
+// Accepts POST requests at /webhook endpoint
+app.post("/webhook", (req, res) => {
+  // Parse the request body from the POST
   let body = req.body;
 
-  // Checks this is an event from a page subscription
-  if (body.object === 'page') {
+  // Check the Incoming webhook message
+  console.log(JSON.stringify(req.body, null, 2));
 
-    // Iterates over each entry - there may be multiple if batched
-    body.entry.forEach(function (entry) {
-
-      // Gets the message. entry.messaging is an array, but 
-      // will only ever contain one message, so we get index 0
-      let webhook_event = entry.messaging[0];
-      console.log(webhook_event);
-      postMessage(req)
-      this.message = webhook_event;
-    });
-
-    // Returns a '200 OK' response to all requests
-    res.status(200).send('EVENT_RECEIVED');
+  // info on WhatsApp text message payload: https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
+  if (req.body.object) {
+    if (
+      req.body.entry &&
+      req.body.entry[0].changes &&
+      req.body.entry[0].changes[0] &&
+      req.body.entry[0].changes[0].value.messages &&
+      req.body.entry[0].changes[0].value.messages[0]
+    ) {
+      let phone_number_id =
+        req.body.entry[0].changes[0].value.metadata.phone_number_id;
+      let from = req.body.entry[0].changes[0].value.messages[0].from; // extract the phone number from the webhook payload
+      let msg_body = req.body.entry[0].changes[0].value.messages[0].text.body; // extract the message text from the webhook payload
+      
+      postMessage(msg_body);
+      
+      axios({
+        method: "POST", // Required, HTTP method, a string, e.g. POST, GET
+        url:
+          "https://graph.facebook.com/v12.0/" +
+          phone_number_id +
+          "/messages?access_token=" +
+          token,
+        data: {
+          messaging_product: "whatsapp",
+          to: from,
+          text: { body: "Ack: " + msg_body },
+        },
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    res.sendStatus(200);
   } else {
-    // Returns a '404 Not Found' if event is not from a page subscription
+    // Return a '404 Not Found' if event is not from a WhatsApp API
     res.sendStatus(404);
   }
-
 });
 
-// Adds support for GET requests to our webhook
-app.get('/webhook', (req, res) => {
+// Accepts GET requests at the /webhook endpoint. You need this URL to setup webhook initially.
+// info on verification request payload: https://developers.facebook.com/docs/graph-api/webhooks/getting-started#verification-requests 
+app.get("/webhook", (req, res) => {
+  /**
+   * UPDATE YOUR VERIFY TOKEN
+   *This will be the Verify Token value when you set up webhook
+  **/
+  const verify_token = 'MAMBO';
 
-  // Your verify token. Should be a random string.
-  let VERIFY_TOKEN = "MAMBO"
+  // Parse params from the webhook verification request
+  let mode = req.query["hub.mode"];
+  let token = req.query["hub.verify_token"];
+  let challenge = req.query["hub.challenge"];
 
-  // Parse the query params
-  let mode = req.query['hub.mode'];
-  let token = req.query['hub.verify_token'];
-  let challenge = req.query['hub.challenge'];
-
-  // Checks if a token and mode is in the query string of the request
+  // Check if a token and mode were sent
   if (mode && token) {
-
-    // Checks the mode and token sent is correct
-    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-
-      // Responds with the challenge token from the request
-      console.log('WEBHOOK_VERIFIED');
+    // Check the mode and token sent are correct
+    if (mode === "subscribe" && token === verify_token) {
+      // Respond with 200 OK and challenge token from the request
+      console.log("WEBHOOK_VERIFIED");
       res.status(200).send(challenge);
-
     } else {
       // Responds with '403 Forbidden' if verify tokens do not match
       res.sendStatus(403);
@@ -77,3 +96,13 @@ app.get('/webhook', (req, res) => {
   }
 });
 
+function postMessage(event) {
+  axios
+  .post('https://62952694a7203b3ed0777ce5.mockapi.io/messages', event)
+  .then(res => {
+    //console.log("res",res);
+  })
+  .catch(error => {
+    console.error(error);
+  });
+}
