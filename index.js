@@ -12,12 +12,27 @@
 // and save it as environment variable into the .env file)
 const token = 'Access_token';
 
+
 // Imports dependencies and set up http server
 const request = require("request"),
   express = require("express"),
   body_parser = require("body-parser"),
   axios = require("axios").default,
   app = express().use(body_parser.json()); // creates express http server
+  const path = require('path');
+  const router = express.Router();
+
+router.get('/',function(req,res){
+  res.sendFile(path.join(__dirname+'/index.html'));
+  //__dirname : It will resolve to your project folder.
+});
+
+router.get('/privacy',function(req,res){
+  res.sendFile(path.join(__dirname+'/privacy.html'));
+});
+
+//add the router
+app.use('/', router);
 
 // Sets server port and logs message on success
 app.listen(process.env.PORT || 1337, () => console.log("webhook is listening"));
