@@ -10,29 +10,57 @@
 // Access token for your app
 // (copy token from DevX getting started page
 // and save it as environment variable into the .env file)
-const token = 'Access_token';
 
+const config = require('config');
+const token = config.get('server.token');
+const directLineSecret = config.get('server.directLineSecret')
+const phone_number_id = config.get('server.phone_number_id');
+const botId = config.get('server.botId');
+const verify_token = config.get('server.verify_token');
 
+global.XMLHttpRequest = require("xhr2");
+global.WebSocket = require("ws");
 // Imports dependencies and set up http server
 const request = require("request"),
   express = require("express"),
   body_parser = require("body-parser"),
   axios = require("axios").default,
   app = express().use(body_parser.json()); // creates express http server
-  const path = require('path');
-  const router = express.Router();
+const path = require("path");
+const router = express.Router();
+const { DirectLine } = require("botframework-directlinejs");
+axios.defaults.headers.common["Authorization"] = "Bearer";
+axios.defaults.headers.post["Content-Type"] = "application/json";
 
-router.get('/',function(req,res){
-  res.sendFile(path.join(__dirname+'/index.html'));
+
+let from =''
+var directLine = new DirectLine({
+  secret: directLineSecret,
+  /*token: 'or put your Direct Line token here (supply secret OR token, not both)' ,*/
+  domain: "",
+  webSocket: true,
+  pollingInterval: 1000,
+  timeout: 20000,
+  conversationStartProperties: { isStart: true, locale: "en-US" },
+});
+
+
+directLine.activity$.subscribe((activity) => {
+  if(activity.from.name !== botId) return
+  else reply(from, activity.text);
+});
+
+router.get("/", function (req, res) {
+  res.sendFile(path.join(__dirname + "/index.html"));
   //__dirname : It will resolve to your project folder.
 });
 
-router.get('/privacy',function(req,res){
-  res.sendFile(path.join(__dirname+'/privacy.html'));
+router.get("/privacy", function (req, res) {
+  res.sendFile(path.join(__dirname + "/privacy.html"));
 });
 
 //add the router
-app.use('/', router);
+app.use("/", router);
 
 // Sets server port and logs message on success
 app.listen(process.env.PORT || 1337, () => console.log("webhook is listening"));
@@ -43,7 +71,7 @@ app.post("/webhook", (req, res) => {
   let body = req.body;
 
   // Check the Incoming webhook message
-  console.log(JSON.stringify(req.body, null, 2));
+  //console.log(JSON.stringify(req.body, null, 2));
 
   // info on WhatsApp text message payload: https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/payload-examples#text-messages
   if (req.body.object) {
@@ -56,25 +84,9 @@ app.post("/webhook", (req, res) => {
     ) {
       let phone_number_id =
         req.body.entry[0].changes[0].value.metadata.phone_number_id;
-      let from = req.body.entry[0].changes[0].value.messages[0].from; // extract the phone number from the webhook payload
+      from = req.body.entry[0].changes[0].value.messages[0].from; // extract the phone number from the webhook payload
       let msg_body = req.body.entry[0].changes[0].value.messages[0].text.body; // extract the message text from the webhook payload
-      
-      postMessage(msg_body);
-      
-      axios({
-        method: "POST", // Required, HTTP method, a string, e.g. POST, GET
-        url:
-          "https://graph.facebook.com/v12.0/" +
-          phone_number_id +
-          "/messages?access_token=" +
-          token,
-        data: {
-          messaging_product: "whatsapp",
-          to: from,
-          text: { body: "Ack: " + msg_body },
-        },
-        headers: { "Content-Type": "application/json" },
-      });
+      postToBot(phone_number_id, from, msg_body);
     }
     res.sendStatus(200);
   } else {
@@ -84,25 +96,21 @@ app.post("/webhook", (req, res) => {
 });
 
 // Accepts GET requests at the /webhook endpoint. You need this URL to setup webhook initially.
-// info on verification request payload: https://developers.facebook.com/docs/graph-api/webhooks/getting-started#verification-requests 
+// info on verification request payload: https://developers.facebook.com/docs/graph-api/webhooks/getting-started#verification-requests
 app.get("/webhook", (req, res) => {
   /**
    * UPDATE YOUR VERIFY TOKEN
    *This will be the Verify Token value when you set up webhook
-  **/
-  const verify_token = 'MAMBO';
-
+   **/
   // Parse params from the webhook verification request
   let mode = req.query["hub.mode"];
   let token = req.query["hub.verify_token"];
   let challenge = req.query["hub.challenge"];
-
   // Check if a token and mode were sent
   if (mode && token) {
     // Check the mode and token sent are correct
     if (mode === "subscribe" && token === verify_token) {
       // Respond with 200 OK and challenge token from the request
-      console.log("WEBHOOK_VERIFIED");
       res.status(200).send(challenge);
     } else {
       // Responds with '403 Forbidden' if verify tokens do not match
@@ -111,13 +119,45 @@ app.get("/webhook", (req, res) => {
   }
 });
 
-function postMessage(event) {
+function reply(from, msg_body) {
   axios
-  .post('https://62952694a7203b3ed0777ce5.mockapi.io/messages', event)
-  .then(res => {
-    //console.log("res",res);
-  })
-  .catch(error => {
-    console.error(error);
-  });
+    .post(
+      "https://graph.facebook.com/v13.0/" +
+        phone_number_id +
+        "/messages?access_token=" +
+        token,
+      {
+        messaging_product: "whatsapp",
+        to: from,
+        text: { body: msg_body },
+        // type: "template",
+        // template: {
+        //   name: "hello_world",
+        //   language: {
+        //     code: "en_US",
+        //   },
+        // },
+      }
+    )
+    .then((res) => {
+    })
+    .catch((error) => {
+      console.error(error);
+    });
 }
+
+function postToBot(phone_number_id, from, msg_body) {
+  directLine
+    .postActivity({
+      from: { id: phone_number_id, name: from }, // required (from.name is optional)
+      type: "message",
+      text: msg_body,
+    })
+    .subscribe(
+      //(id) => console.log("Posted activity, assigned ID ", id),
+      (error) => console.log("Error posting activity", error)
+    );
+}
+
+
+
