@@ -12,6 +12,7 @@
 // and save it as environment variable into the .env file)
 
 const config = require('config');
+const  io = require('socket.io-client');
 const token = config.get('server.token');
 const directLineSecret = config.get('server.directLineSecret')
 const phone_number_id = config.get('server.phone_number_id');
@@ -29,9 +30,15 @@ const request = require("request"),
 const path = require("path");
 const router = express.Router();
 const { DirectLine } = require("botframework-directlinejs");
+const { response } = require('express');
 axios.defaults.headers.common["Authorization"] = "Bearer";
 axios.defaults.headers.post["Content-Type"] = "application/json";
 
+const socket = io("http://localhost:3001");
+
+socket.on("response", (args) => {
+  reply({...args});
+});
 
 let from =''
 var directLine = new DirectLine({
@@ -44,7 +51,7 @@ var directLine = new DirectLine({
   conversationStartProperties: { isStart: true, locale: "en-US" },
 });
 
-
+//for directline
 directLine.activity$.subscribe((activity) => {
   if(activity.from.name !== botId) return
   else reply(from, activity.text);
@@ -63,7 +70,7 @@ router.get("/privacy", function (req, res) {
 app.use("/", router);
 
 // Sets server port and logs message on success
-app.listen(process.env.PORT || 1337, () => console.log("webhook is listening"));
+app.listen(process.env.PORT || 1337, () => {});
 
 // Accepts POST requests at /webhook endpoint
 app.post("/webhook", (req, res) => {
@@ -86,8 +93,12 @@ app.post("/webhook", (req, res) => {
         req.body.entry[0].changes[0].value.metadata.phone_number_id;
       from = req.body.entry[0].changes[0].value.messages[0].from; // extract the phone number from the webhook payload
       let msg_body = req.body.entry[0].changes[0].value.messages[0].text.body; // extract the message text from the webhook payload
-      postToBot(phone_number_id, from, msg_body);
+      //postToBot(phone_number_id, from, msg_body);
+      socket.emit("message",  { phone_number_id: phone_number_id, from: from, msg_body: msg_body});
     }
+
+
+
     res.sendStatus(200);
   } else {
     // Return a '404 Not Found' if event is not from a WhatsApp API
@@ -119,25 +130,13 @@ app.get("/webhook", (req, res) => {
   }
 });
 
-function reply(from, msg_body) {
+function reply(response) {
   axios
     .post(
       "https://graph.facebook.com/v13.0/" +
         phone_number_id +
         "/messages?access_token=" +
-        token,
-      {
-        messaging_product: "whatsapp",
-        to: from,
-        text: { body: msg_body },
-        // type: "template",
-        // template: {
-        //   name: "hello_world",
-        //   language: {
-        //     code: "en_US",
-        //   },
-        // },
-      }
+        token, response
     )
     .then((res) => {
     })
@@ -146,6 +145,8 @@ function reply(from, msg_body) {
     });
 }
 
+
+//use directLine
 function postToBot(phone_number_id, from, msg_body) {
   directLine
     .postActivity({
