@@ -1,11 +1,8 @@
-{
+{  
   "name": "messenger-webhook",
   "version": "1.0.0",
   "description": "y",
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -20,5 +17,12 @@
   },
   "engines": {
     "node": "12.x"
+  },
+  "scripts": {
+    "start":"nodemon index.js"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.19"
+
   }
 }

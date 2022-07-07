@@ -11,12 +11,12 @@
 // (copy token from DevX getting started page
 // and save it as environment variable into the .env file)
 
-const config = require('config');
-const token = config.get('server.token');
-const directLineSecret = config.get('server.directLineSecret')
-const phone_number_id = config.get('server.phone_number_id');
-const botId = config.get('server.botId');
-const verify_token = config.get('server.verify_token');
+const config = require("config");
+const token = config.get("server.token");
+const directLineSecret = config.get("server.directLineSecret");
+const phone_number_id = config.get("server.phone_number_id");
+const botId = config.get("server.botId");
+const verify_token = config.get("server.verify_token");
 
 global.XMLHttpRequest = require("xhr2");
 global.WebSocket = require("ws");
@@ -32,8 +32,7 @@ const { DirectLine } = require("botframework-directlinejs");
 axios.defaults.headers.common["Authorization"] = "Bearer";
 axios.defaults.headers.post["Content-Type"] = "application/json";
 
-
-let from =''
+let from = "";
 var directLine = new DirectLine({
   secret: directLineSecret,
   /*token: 'or put your Direct Line token here (supply secret OR token, not both)' ,*/
@@ -44,9 +43,9 @@ var directLine = new DirectLine({
   conversationStartProperties: { isStart: true, locale: "en-US" },
 });
 
-
+//for directline
 directLine.activity$.subscribe((activity) => {
-  if(activity.from.name !== botId) return
+  if (activity.from.name !== botId) return;
   else reply(from, activity.text);
 });
 
@@ -63,7 +62,7 @@ router.get("/privacy", function (req, res) {
 app.use("/", router);
 
 // Sets server port and logs message on success
-app.listen(process.env.PORT || 1337, () => console.log("webhook is listening"));
+app.listen(process.env.PORT || 1337, () => {});
 
 // Accepts POST requests at /webhook endpoint
 app.post("/webhook", (req, res) => {
@@ -146,6 +145,7 @@ function reply(from, msg_body) {
     });
 }
 
+//use directLine
 function postToBot(phone_number_id, from, msg_body) {
   directLine
     .postActivity({
@@ -158,6 +158,3 @@ function postToBot(phone_number_id, from, msg_body) {
       (error) => console.log("Error posting activity", error)
     );
 }
-
-
-
