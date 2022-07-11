@@ -32,7 +32,7 @@ const { DirectLine } = require("botframework-directlinejs");
 axios.defaults.headers.common["Authorization"] = "Bearer";
 axios.defaults.headers.post["Content-Type"] = "application/json";
 
-let from = "";
+let users = [];
 var directLine = new DirectLine({
   secret: directLineSecret,
   /*token: 'or put your Direct Line token here (supply secret OR token, not both)' ,*/
@@ -44,10 +44,6 @@ var directLine = new DirectLine({
 });
 
 //for directline
-directLine.activity$.subscribe((activity) => {
-  if (activity.from.name !== botId) return;
-  else reply(from, activity.text);
-});
 
 router.get("/", function (req, res) {
   res.sendFile(path.join(__dirname + "/index.html"));
@@ -81,9 +77,10 @@ app.post("/webhook", (req, res) => {
       req.body.entry[0].changes[0].value.messages &&
       req.body.entry[0].changes[0].value.messages[0]
     ) {
+      console.log(req.body.entry[0].changes[0].value.messages[0])
       let phone_number_id =
         req.body.entry[0].changes[0].value.metadata.phone_number_id;
-      from = req.body.entry[0].changes[0].value.messages[0].from; // extract the phone number from the webhook payload
+      let from = req.body.entry[0].changes[0].value.messages[0].from; // extract the phone number from the webhook payload
       let msg_body = req.body.entry[0].changes[0].value.messages[0].text.body; // extract the message text from the webhook payload
       postToBot(phone_number_id, from, msg_body);
     }
@@ -118,7 +115,10 @@ app.get("/webhook", (req, res) => {
   }
 });
 
-function reply(from, msg_body) {
+function reply(from, activity) {
+  let content = activity.attachments
+    ? activity.attachments[0].content.body[0]
+    : { type: "text", text: { body: activity.text } };
   axios
     .post(
       "https://graph.facebook.com/v13.0/" +
@@ -127,19 +127,12 @@ function reply(from, msg_body) {
         token,
       {
         messaging_product: "whatsapp",
+        recipient_type: "individual",
         to: from,
-        text: { body: msg_body },
-        // type: "template",
-        // template: {
-        //   name: "hello_world",
-        //   language: {
-        //     code: "en_US",
-        //   },
-        // },
+        ...content,
       }
     )
-    .then((res) => {
-    })
+    .then((res) => {})
     .catch((error) => {
       console.error(error);
     });
@@ -149,12 +142,24 @@ function reply(from, msg_body) {
 function postToBot(phone_number_id, from, msg_body) {
   directLine
     .postActivity({
-      from: { id: phone_number_id, name: from }, // required (from.name is optional)
+      from: { id: from, name: phone_number_id }, // required (from.name is optional)
       type: "message",
       text: msg_body,
     })
     .subscribe(
-      //(id) => console.log("Posted activity, assigned ID ", id),
+      (id) => {
+        pollResponse(id, from);
+      },
       (error) => console.log("Error posting activity", error)
     );
+}
+
+function pollResponse(conversationId, from) {
+  directLine.activity$.subscribe((activity) => {
+    if (activity.from.name !== botId) return;
+    if (activity.type !== "message") return;
+    if (activity.text == "") return;
+    console.log(activity, activity.from.name);
+    reply(from, activity);
+  });
 }
