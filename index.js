@@ -32,7 +32,8 @@ const { DirectLine } = require("botframework-directlinejs");
 axios.defaults.headers.common["Authorization"] = "Bearer";
 axios.defaults.headers.post["Content-Type"] = "application/json";
 
-let users = [];
+let users  = []; //: {id : string , conversationId: string, greeted : boolean}[]
+let activities = [];
 var directLine = new DirectLine({
   secret: directLineSecret,
   /*token: 'or put your Direct Line token here (supply secret OR token, not both)' ,*/
@@ -77,7 +78,6 @@ app.post("/webhook", (req, res) => {
       req.body.entry[0].changes[0].value.messages &&
       req.body.entry[0].changes[0].value.messages[0]
     ) {
-      console.log(req.body.entry[0].changes[0].value.messages[0])
       let phone_number_id =
         req.body.entry[0].changes[0].value.metadata.phone_number_id;
       let from = req.body.entry[0].changes[0].value.messages[0].from; // extract the phone number from the webhook payload
@@ -140,26 +140,58 @@ function reply(from, activity) {
 
 //use directLine
 function postToBot(phone_number_id, from, msg_body) {
-  directLine
+  //find if user has conversation
+  var user = users.find(user => user.id === from)
+  if (!user) users.push({id: from})
+ directLine
     .postActivity({
       from: { id: from, name: phone_number_id }, // required (from.name is optional)
       type: "message",
       text: msg_body,
-    })
-    .subscribe(
+    }).subscribe(
       (id) => {
-        pollResponse(id, from);
+       // let replies =  activities.filter(act => act.id !== id);
+        let postActivity = activities.find(act => act.id == id);
+        addUser(postActivity, id);
       },
-      (error) => console.log("Error posting activity", error)
-    );
+      (error) => { console.log('Error posting :', error  )}
+    )
 }
 
-function pollResponse(conversationId, from) {
   directLine.activity$.subscribe((activity) => {
-    if (activity.from.name !== botId) return;
     if (activity.type !== "message") return;
     if (activity.text == "") return;
-    console.log(activity, activity.from.name);
-    reply(from, activity);
+    activities.push(activity);
   });
-}
+
+  function addUser(postActivity, id){
+    //check if user is already in? 
+
+    //add user
+    users.push({id : postActivity.from.id , conversationId : id.split('|')[0]});
+    //console.log(users);
+
+    //filter user replies
+
+    let replies = activities.filter(act => act.id.includes(id.split('|')[0]));
+    //update activities 
+    activities = activities.filter(act => !act.id.includes(id.split('|')[0]))
+
+    //further filter replies
+    replies = replies.filter(reply => reply.id !== postActivity.id)
+    replyUser(replies, postActivity)
+  }
+
+  function replyUser(replies, postActivity){
+    //sort messages
+    replies.sort((a, b) => {
+      if(a.id > b.id) return 1;
+      if(a.id < b.id ) return -1
+      return 0;
+    })
+    replies.forEach(element => {
+      reply(postActivity.from.id,  element)
+    });
+  }
+
+
